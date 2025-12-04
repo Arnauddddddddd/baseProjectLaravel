@@ -31,24 +31,40 @@ class AuthController extends Controller
         ], 201);
     }
 
-    public function login(Request $request)
-    {
-        $credentials = $request->validate([
+    public function login(Request $request) {
+        $validated = $request->validate([
             'email' => ['required', 'email'],
-            'password' => ['required', 'string'],
+            'password' => ['required', 'string']
         ]);
 
-        $user = User::where('email', $credentials['email'])->first();
+        $user = User::where('email', $validated['email'])->first();
 
-        if (!$user || !Hash::check($credentials['password'], $user->password)) {
-            return response()->json(['message' => 'Invalid credentials'], 401);
+        if (! $user || ! Hash::check($validated['password'], $user->password)) {
+            throw ValidationException::withMessages([
+                'email' => ['Les identifiants fournis sont incorrects.'],
+            ]);
         }
 
+        $user->tokens()->delete();
+
         $token = $user->createToken('api-token')->plainTextToken;
+
         return response()->json([
             'user' => $user,
-            'token' => $token,
+            'token' => $token
         ], 200);
+    }
+
+    public function logout(Request $request) {
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'message' => 'Logged out successfully'
+        ], 200);
+    }
+
+    public function me(Request $request) {
+        return response()->json($request->user(), 200);
     }
 }
             
